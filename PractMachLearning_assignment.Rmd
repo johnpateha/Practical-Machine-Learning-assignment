@@ -1,0 +1,103 @@
+---
+title: "Practical Machine Learning. Find a model to predict exercise maner"
+output: html_document
+---
+##Summary
+
+The goal of the analysis was to find a model to predict exercise maner based on data 
+from project "Human Activity Recognition" ( http://groupware.les.inf.puc-rio.br/har ).
+The initial dataset consist of 19622 observation of 160 variables. Before we built
+a model, raw data was processed - variables with large amounts NA and empty values 
+was removed from dataset. Some another variables was also removed.  
+After data processing new dataset had only 55 variables.
+We found multiclass prediction problem and Random Forest method was choosen. 
+This method uses bootstrap for cross validation and could give us model with high accuracy rate.  
+Before to train model we splitted the dataset to train and test samples what help us 
+to check accuracy of the final model.  
+We need need accuracy more than 97.5% (or 19.5 correct answers for 20 samples).
+After model was trained, we found the model with training accuracy rate 99.4%.
+We checked accuracy rate with our test sample.
+For test semple the model had similar 99.7% accuracy, that is very good and was 
+enough for correct prediction of assignment's test.
+Thus we could conclude that we found the model, that could be used as a predictor for 
+exercise maner with high accuracy.  
+ 
+## Data processing
+Before make any analysis we need to make some changes in the dataset.   
+Initial data had many variables with empty values or NA values.
+We desided to remove those variables from dataset. 
+```{r, echo = TRUE, cache = TRUE}
+rawdata <- read.csv("pml-training.csv")
+countNA <- sapply(rawdata, function(x) sum(length(which(is.na(x)|x==""))))  
+badcolumns <- countNA > 19000
+prData <- rawdata[ ,!badcolumns]
+```
+Also we decided that first 5 variables (row number, user_name and 3 timestamps variables) 
+could not be prediction factors. These variables don't characterize the certain activity, 
+just the moment when data was collected 
+
+```{r, echo = TRUE, cache = TRUE}
+prData <- prData[ , c(-1:-5)]
+```
+
+
+## Build a model
+We splitted our data for two datasets train and test. First dataset we used for model 
+training and second for check model accuracy. 
+ 
+```{r, echo = TRUE, cache = TRUE}
+library(caret)
+set.seed(3412)
+trList <- createDataPartition(y=prData$classe, p=.6, list = FALSE)
+trData <- prData[trList,]
+teData <- prData[-trList,]
+```
+
+Next we should find multiclass prediction model. Random Forest method was choosen. 
+This method allow to make multiclass prediction and uses bootstrap for cross validation 
+and could give us model with high accuracy rate. Before to prepare this repord we builded 
+few different models. To make process of final model training faster we decided to 
+change training parameters. Parametr "mtry" was set to the best value 27 for our dataset.    
+
+```{r, echo = TRUE, cache = TRUE}
+newGrid = expand.grid(mtry = c(27))
+trModel <- train(classe~., data = trData,method="rf",prox=TRUE, tuneGrid = newGrid) 
+```
+
+We get model with good accurancy
+
+```{r, echo = TRUE, cache = TRUE}
+trModel
+```
+
+## Check the model
+We cheked accuracy of the model with our test dataset, that was prepared.
+```{r, echo = TRUE, cache = TRUE}
+testpredict <- predict(trModel,teData)
+predright <- testpredict==teData$classe
+table(testpredict,teData$classe)
+```
+
+To complete assignment we should to predict factor "classe" for 20 samples. 
+We expected that model's accurancy rate should be more than 97.5% (or 19.5 correct answers for 20 samples)
+Our model let us good error rate **`r round((sum(!predright)/dim(teData)[1])*100,1)` %** and accurancy rate **`r round((1-sum(!predright)/dim(teData)[1])*100,1)` %**   
+
+We used the model to complete assignment 
+
+```{r, echo = TRUE, cache = TRUE}
+testdataset <- read.csv("pml-testing.csv")
+prediction <- predict(trModel,testdataset)
+```
+
+```{r, echo = FALSE, cache = FALSE}
+pml_write_files = function(x){
+        n = length(x)
+        for(i in 1:n){
+                filename = paste0("problem_id_",i,".txt")
+                write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+        }
+}
+
+#pml_write_files(prediction)
+#write.table(prediction,file="fullresult.txt",quote=FALSE,row.names=FALSE,col.names=FALSE)
+```
